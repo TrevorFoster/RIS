@@ -1,102 +1,148 @@
 import pygame
 from helpers import Vector2, Mouse
+from resources import ResourceManager
+
+class Event:
+	def __init__(self, name):
+		self.name = name
+		self._callbacks = []
+
+	def trigger(self):
+		for callback in self._callbacks:
+			callback[0](self, callback[1])
+
+	def register(self, callback, *args):
+		self._callbacks.append([callback, args])
+		return callback
+
 
 class Component(object):
-	def __init__(self, x, y, w, h):
-		self.pos = Vector2(x, y)
-		self.w = w
-		self.h = h
+	defaults = {
+		"width": 10,
+		"height": 10,
+		"position": Vector2(),
+		"horizontal_align": 0,
+		"colour": (0, 0, 0),
+		"background_colour": (0, 0, 0),
+		"border_colour": (0, 0, 0),
+		"layout": 0,
+		"padding": 0,
+		"hover": {}
+	}
+
+	def __init__(self, **args):
+		self.attr = args
+		self.parseAttr()
+
+		self.pos = Vector2()
 		self.inside = False
-		self.onClick = []
-		self.onMouseEnter = []
-		self.onMouseLeave = []
 		self.parent = None
+		self.overridden = {}
 
-	def registerOnClick(self, callback):
-		self.onClick.append(callback)
-		return callback
+		self.onClick = Event("onClick")
+		self.onMouseEnter = Event("onMouseEnter")
+		self.onMouseLeave = Event("onMouseLeave")
+		
+		self.onMouseEnter.register(self.mouseEnter)
+		self.onMouseLeave.register(self.mouseLeave)
 
-	def registerOnMouseEnter(self, callback):
-		self.onMouseEnter.append(callback)
-		return callback
-
-	def registerOnMouseLeave(self, callback):
-		self.onMouseLeave.append(callback)
-		return callback
+	def parseAttr(self):
+		for attr, value in Component.defaults.iteritems():
+			self.attr.setdefault(attr, value)
+			
+		self.pos = self.attr["position"]
+		self.w = self.attr["width"]
+		self.h = self.attr["height"]
 
 	def align(self):
 		if self.parent:
-			self.pos.x = self.parent.pos.x + self.parent.w / 2 - self.w / 2
+			horAlign = self.attr["horizontal_align"]
+			if horAlign == 0:
+				self.pos.x = self.parent.pos.x + self.parent.w / 2 - self.w / 2
+			elif horAlign == 1:
+				print self.parent.pos.x
+				self.pos.x = self.parent.pos.x
 
 	def update(self):
 		buttonRect = pygame.Rect(self.pos.x, self.pos.y, self.w, self.h)
 		if buttonRect.collidepoint(Mouse.pos.x, Mouse.pos.y):
 			if not self.inside:
 				self.inside = True
-				for callback in self.onMouseEnter:
-					callback()
+				self.onMouseEnter.trigger()
 
-			if Mouse.buttons[0]:
-				for callback in self.onClick:
-					callback()
+			if Mouse.leftClicked:
+				self.onClick.trigger()
 		else:
 			if self.inside:
-				for callback in self.onMouseLeave:
-					callback()
+				self.onMouseLeave.trigger()
 			self.inside = False
+
+	def mouseEnter(self, e, args):
+		for attr, value in self.attr["hover"].iteritems():
+			self.overridden[attr] = self.attr[attr]
+			self.attr[attr] = value
+
+	def mouseLeave(self, e, args):
+		for attr, value in self.overridden.iteritems():
+			self.attr[attr] = value
 
 	def draw(self, screen):
 		pass
 
 class Button(Component):
-	def __init__(self, x, y, w, h, text="", colourDict=None):
-		super(Button, self).__init__(x, y, w, h)
-		self.text = text
-		if not colourDict:
-			self.colourDict = {
-				"base": (0, 0, 0),
-				"outline": (255, 255, 255),
-				"text": (255, 255, 255)
-			}
-		else: 
-			self.colourDict = colourDict
+	defaults = {
+		"text": ""
+	}
 
-		@self.registerOnMouseEnter
-		def buttonEntered():
-			for colour in self.colourDict:
-				prevColour = self.colourDict[colour]
-				self.colourDict[colour] = (255 - prevColour[0], 255 - prevColour[1], 255 - prevColour[2])
+	def __init__(self, **args):
+		super(Button, self).__init__(**args)
 
-		@self.registerOnMouseLeave
-		def buttonLeft():
-			for colour in self.colourDict:
-				prevColour = self.colourDict[colour]
-				self.colourDict[colour] = (255 - prevColour[0], 255 - prevColour[1], 255 - prevColour[2])
+	def parseAttr(self):
+		super(Button, self).parseAttr()
 
-	
+		for attr, value in Button.defaults.iteritems():
+			self.attr.setdefault(attr, value)
+
+		self.text = self.attr["text"]
+
 	def draw(self, screen):
-		pygame.draw.rect(screen, self.colourDict["base"], (self.pos.x, self.pos.y, self.w, self.h), 0)
-		pygame.draw.rect(screen, self.colourDict["outline"], (self.pos.x, self.pos.y, self.w, self.h), 2)
+		pygame.draw.rect(screen, self.attr["background_colour"], (self.pos.x, self.pos.y, self.w, self.h), 0)
+		pygame.draw.rect(screen, self.attr["border_colour"], (self.pos.x, self.pos.y, self.w, self.h), 2)
 		
-		text = Menu.font.render(self.text, 0, self.colourDict["text"])
+		text = Menu.font.render(self.text, 0, self.attr["colour"])
 		textRect = text.get_rect()
 		screen.blit(text, (self.pos.x + self.w/2 - textRect[2] / 2, self.pos.y + self.h / 2 - textRect[3] / 2))
 
 class Image(Component):
-	def __init__(self, x, y, w, h, img):
-		super(Image, self).__init__(x, y, w, h)
-		self.img = img
+	def __init__(self, **args):
+		super(Image, self).__init__(**args)
+
+	def parseAttr(self):
+		super(Image, self).parseAttr()
+
+		self.image = None
+		if "image" in self.attr:
+			self.image = self.attr["image"]
+		elif "src" in self.attr:
+			self.load(self.attr["src"])
+
+	def load(self, src):
+		self.image = ResourceManager.loadImage(src)
+
+		imgRect = self.image.get_rect()
+		self.w = imgRect[2]
+		self.h = imgRect[3]
+
+	def draw(self, screen):
+		screen.blit(self.image, (self.pos.x, self.pos.y))
 
 class Container(Component):
 	# align
 	# 0 = CENTER
 	# layout
 	# 0 = VERTICAL
-	def __init__(self, x, y, w, h, layout=0, align=0, padding=10):
-		super(Container, self).__init__(x, y, w, h)
-		self.layout = layout
-		self.alignment = align
-		self.padding = padding
+	def __init__(self, **args):
+		super(Container, self).__init__(**args)
 		self.components = []
 
 	def addComponent(self, component):
@@ -109,10 +155,9 @@ class Container(Component):
 			totW, totH = 0, 0
 
 			for i, c in enumerate(self.components):
+				padding = c.attr["padding"]
 				totW += c.w
 				totH += c.h
-				if i < len(self.components) - 1:
-					totH += self.padding
 
 			self.w = totW
 			self.h = totH
@@ -123,9 +168,7 @@ class Container(Component):
 			cury = self.pos.y
 			for i, c in enumerate(self.components):
 				c.pos.y = cury
-				cury += c.h
-				if i < len(self.components) - 1:
-					cury += self.padding
+				cury += c.h 
 		
 		for c in self.components:
 			c.align()
@@ -137,12 +180,16 @@ class Container(Component):
 			c.update()
 
 	def draw(self, screen):
+		if self.attr["background_colour"]:
+			pygame.draw.rect(screen, self.attr["background_colour"], (self.pos.x, self.pos.y, self.w, self.h))
+
 		for c in self.components:
 			c.draw(screen)
 
 class View(object):
 	def __init__(self):
 		self.components = []
+		self.parent = None
 
 	def focus(self):
 		self.doLayout()
@@ -152,6 +199,9 @@ class View(object):
 
 	def doLayout(self):
 		pass
+
+	def addComponent(self, component):
+		self.components.append(component)
 
 	def cleanLayout(self):
 		self.components = []
@@ -164,11 +214,50 @@ class View(object):
 		for c in self.components:
 			c.draw(screen)
 
+class Menu(object):
+	def __init__(self):
+		self.stateProvider = StateProvider()
+		self.currentView = None
+		self.config()
+		Menu.font = pygame.font.Font("./assets/pixelated.ttf", 30)
+
+	def config(self):
+		pass
+
+	def draw(self, screen):
+		if self.currentView:
+			self.currentView.draw(screen)
+
+	def update(self):
+		if self.currentView:
+			self.currentView.update()
+
+	def addView(self, state):
+		state.view.parent = self
+		self.stateProvider.state(state)
+
+	def focusView(self, newView):
+		if newView:
+			if self.currentView: self.currentView.blur()
+
+			self.currentView = newView
+			self.currentView.focus()
+
+	def go(self, state):
+		nextView = self.stateProvider.go(state)
+		self.focusView(nextView)
+
+	def back(self):
+		nextView = self.stateProvider.back()
+		self.focusView(nextView)
+
+
 class State:
 	def __init__(self, state, view):
 		self.state = state
 		self.view = view
 		self.parent = None
+		self.children = {}
 
 class StateProvider:
 	def __init__(self):
@@ -180,25 +269,25 @@ class StateProvider:
 
 		if nodes[0] in self.states:
 			nextNode = self.states[nodes[0]]
-			if newState == nextNode["stateObject"].state:
-				self.currentState = nextNode["stateObject"]
+			if newState == nextNode.state:
+				self.currentState = nextNode
 				return self.currentState.view
 
-			curNode = nextNode["children"]
+			curNode = nextNode.children
 		else:
 			return None
 
-		for i in range(1, len(nodes)):			
-			if nodes[i] not in curNode:
+		for node in nodes[1:]:			
+			if node not in curNode:
 				return None
 
-			nextNode = curNode[nodes[i]]
-			if newState == nextNode["stateObject"].state:
-				self.currentState = nextNode["stateObject"]
+			nextNode = curNode[node]
+			if newState == nextNode.state:
+				self.currentState = nextNode
 				return self.currentState.view
 
-			curParent = nextNode["stateObject"]
-			curNode = nextNode["children"]
+			curParent = nextNode
+			curNode = nextNode.children
 
 		return None
 
@@ -206,66 +295,26 @@ class StateProvider:
 		nodes = filter(lambda n: n, newState.state.split("."))
 
 		if nodes[0] in self.states:
-			curParent = self.states[nodes[0]]["stateObject"]
-			curNode = self.states[nodes[0]]["children"]
+			curParent = self.states[nodes[0]]
+			curNode = self.states[nodes[0]].children
 		else:
-			self.states[nodes[0]] = {"stateObject": newState, "children": {}}
+			self.states[nodes[0]] = newState
 			return True
 
-		for i in range(1, len(nodes)):
-			if nodes[i] not in curNode:
+		for node in nodes[1:]:
+			if node not in curNode:
 				newState.parent = curParent
-				curNode[nodes[i]] = {"stateObject": newState, "children": {}}
+				curNode[node] = newState
 				
 				return True
 
-			nextNode = curNode[nodes[i]]
-			curParent = nextNode["stateObject"]
-			curNode = nextNode["children"]
+			nextNode = curNode[node]
+			curParent = nextNode
+			curNode = nextNode.children
+		return False
 
 	def back(self):
 		if self.currentState.parent:
 			self.currentState = self.currentState.parent
 			return self.currentState.view
 		return None
-
-class Menu(object):
-	stateProvider = StateProvider()
-	currentView = None
-
-	def __init__(self):
-		self.config()
-		Menu.font = pygame.font.Font("./assets/pixelated.ttf", 30)
-
-	def config(self):
-		pass
-
-	def draw(self, screen):
-		if Menu.currentView:
-			Menu.currentView.draw(screen)
-
-	def update(self):
-		if Menu.currentView:
-			Menu.currentView.update()
-
-	@staticmethod
-	def addView(state):
-		Menu.stateProvider.state(state)
-
-	@staticmethod
-	def focusView(newView):
-		if newView:
-			if Menu.currentView: Menu.currentView.blur()
-
-			Menu.currentView = newView
-			Menu.currentView.focus()
-
-	@staticmethod
-	def go(state):
-		nextView = Menu.stateProvider.go(state)
-		Menu.focusView(nextView)
-
-	@staticmethod
-	def back():
-		nextView = Menu.stateProvider.back()
-		Menu.focusView(nextView)

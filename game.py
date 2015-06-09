@@ -22,7 +22,8 @@ class Game:
     coins = []
     stars = []
     enemies = []
-    running = True
+
+    running, full, music = True, False, True
 
     @staticmethod
     def init():
@@ -47,7 +48,7 @@ class Game:
 
     @staticmethod
     def draw():
-        Window.screen.fill((255,255,255))
+        Window.screen.fill((0, 0, 0))
 
         Game.drawPlanets()
         Game.drawStars()
@@ -95,24 +96,47 @@ class Game:
         for e in Game.enemies:
             e.draw()
 
+buttonStyle = {
+    "background_colour": (100, 100, 100),
+    "border_colour": (60, 60, 60),
+    "colour": (255, 255, 255),
+    "padding": 15,
+    "hover": {
+        "background_colour": (60, 60, 60),
+        "border_colour": (100, 100, 100)
+    }
+}
+
 class MainView(View):
+    
+
     def doLayout(self):
-        mainContainer = Container(0, 0, Window.windw, Window.windh)
-        middleContainer = Container(0, 0, 100, 100)
+        mainContainer = Container(width=Window.windw, height=Window.windh)
+        middleContainer = Container()
 
-        startButton = Button(0, 0, 200, 100, "Start!")
-        optionsButton = Button(0, 0, 200, 100, "Options")
-        scoresButton = Button(0, 0, 300, 100, "High scores")
-        exitButton = Button(0, 0, 200, 100, "Exit")
+        title = Image(src="./assets/RectangleTitle.png")
+        startButton = Button(width=400, height=80, text="Start!", **buttonStyle)
+        optionsButton = Button(width=400, height=80, text="Options", **buttonStyle)
+        scoresButton = Button(width=400, height=80, text="High Scores", **buttonStyle)
+        exitButton = Button(width=400, height=80, text="Exit", **buttonStyle)
 
-        @startButton.registerOnClick
-        def startButtonClicked():
+        def startButtonClicked(e, args):
             print "HEY THERE"
 
-        @exitButton.registerOnClick
-        def startButtonClicked():
+        startButton.onClick.register(startButtonClicked)
+
+        def optionsButtonClicked(e, args):
+            args[0].go("main.options")
+
+        optionsButton.onClick.register(optionsButtonClicked, self.parent)
+
+
+        def exitButtonClicked(e, args):
             Game.running = False
 
+        exitButton.onClick.register(exitButtonClicked)
+
+        middleContainer.addComponent(title)
         middleContainer.addComponent(startButton)
         middleContainer.addComponent(optionsButton)
         middleContainer.addComponent(scoresButton)
@@ -120,31 +144,58 @@ class MainView(View):
 
         mainContainer.addComponent(middleContainer)
 
-        self.components.append(mainContainer)
-
-class ScoreView(View):
-    def doLayout(self):
-        button1 = Button(0, 0, 200, 100, "SECOND")
-
-        @button1.registerOnClick
-        def button1Clicked():
-            print button1.text
+        self.addComponent(mainContainer)
 
 class OptionView(View):
     def doLayout(self):
-        button1 = Button(0, 0, 200, 100, "THIRD")
+        mainContainer = Container(width=Window.windw, height=Window.windh)
+        middleContainer = Container()
 
-        @button1.registerOnClick
+        fullToggle = Button(width=400, height=80, text="Toggle Fullscreen", **buttonStyle)
+        musicToggle = Button(width=400, height=80, text=("Music: " + ("On" if Game.music else "Off")), **buttonStyle)
+        backButton = Button(width=400, height=80, text="Back", **buttonStyle)
+
+        fullToggle.onClick.register(self.toggleFullscreen)
+        musicToggle.onClick.register(self.toggleMusic, musicToggle)
+        backButton.onClick.register(self.backClicked)
+
+        middleContainer.addComponent(fullToggle)
+        middleContainer.addComponent(musicToggle)
+        middleContainer.addComponent(backButton)
+
+        mainContainer.addComponent(middleContainer)
+
+        self.addComponent(mainContainer)
+
+    def backClicked(self, e, args):
+        self.parent.back()
+
+    def toggleFullscreen(self, e, args):
+        Game.full = not Game.full
+
+    def toggleMusic(self, e, args):
+        print args[0]
+        Game.music = not Game.music
+        args[0].text = "Music: " + ("On" if Game.music else "Off")
+
+class ScoreView(View):
+    def doLayout(self):
+        button1 = Button(pos=Vector2(0, 0), width=200, height=100, text="SECOND")
+
         def button1Clicked():
             print button1.text
+
+        button1.onClick.register(button1Clicked, self)
+
+
 
 class MainMenu(Menu):
     def __init__(self):
         super(MainMenu, self).__init__()
 
     def config(self):
-        MainMenu.addView(State("main", MainView()))
-        MainMenu.addView(State("main.scores", ScoreView()))
-        MainMenu.addView(State("main.options", OptionView()))
+        self.addView(State("main", MainView()))
+        self.addView(State("main.options", OptionView()))
+        self.addView(State("main.scores", ScoreView()))
 
-        MainMenu.go("main")
+        self.go("main")

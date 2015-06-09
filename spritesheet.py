@@ -2,7 +2,7 @@ import pygame
 
 class Spritesheet:
 
-    def __init__(self, filename):
+    def __init__(self, filename, dimensions):
         try:
             self.sheet = pygame.image.load(filename).convert()
         except pygame.error, message:
@@ -26,11 +26,25 @@ class Spritesheet:
 
     def extractImages(self, dimensions):
         rec = self.sheet.get_rect()
-        framew, frameh = rec[2] / dimensions[0], rec[3] / .dimensions[1]
+        framew, frameh = rec[2] / dimensions[0], rec[3] / dimensions[1]
         points = []
         
-        for y in range(self.dimensions[1]):
-            for x in range(self.dimensions[0]):
+        for y in range(dimensions[1]):
+            for x in range(dimensions[0]):
                 points.append((x * framew, y * frameh, framew, frameh))
 
         return self.imagesAt(points, colorkey=(0, 0, 0))
+
+class Animation:
+    def __init__(self, images):
+        self.frames = images
+        self.frame = 0
+
+    def next(self):
+        if self.frame >= len(self.images) - 1:
+            self.frame = 0
+
+        return self.frames[self.frame]
+
+    def current(self):
+        return self.frames[self.frame]

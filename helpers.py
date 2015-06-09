@@ -376,12 +376,20 @@ class Keys:
         return Keys.keys[Keys.mapping[keyId]]
 
 class Mouse:
+    leftClicked = False
     buttons = None
+    prevStates = None
     pos = Vector2.zero()
 
     @staticmethod
     def update():
         Mouse.buttons = pygame.mouse.get_pressed()
+        
+        Mouse.leftClicked = False
+        if Mouse.prevStates and Mouse.prevStates[0] and not Mouse.buttons[0]:
+            Mouse.leftClicked = True
 
         mpos = pygame.mouse.get_pos()
         Mouse.pos = Vector2(mpos[0], mpos[1])
+
+        Mouse.prevStates = Mouse.buttons
