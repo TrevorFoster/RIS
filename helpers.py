@@ -72,6 +72,8 @@ class Vector2:
 
 class Constants:
     sqrt2 = math.sqrt(2)
+    MAXPLAYERSPEED = 2.6
+    MAXENEMYSPEED = MAXPLAYERSPEED / 1.1
 
 class Key:
     def __init__(self, keycode):
@@ -372,7 +374,15 @@ class Keys:
             Keys.keys[Keys.mapping[key]].update(state)
 
     @staticmethod
+    def pressed(keyId):
+        if keyId >= len(Keys.mapping): return None
+
+        return Keys.keys[Keys.mapping[keyId]].pressed
+
+    @staticmethod
     def get(keyId):
+        if keyId >= len(Keys.mapping): return None
+
         return Keys.keys[Keys.mapping[keyId]]
 
 class Mouse:

@@ -1,8 +1,12 @@
-import pygame
+import pygame, random
 from pygame.locals import *
-from camera import Camera
 from menu import *
-from helpers import Keys, Mouse
+from helpers import Keys, Mouse, Constants
+from camera import Camera
+from player import Player
+from weapons import Projectiles, Particles
+from enemy import Enemies
+from spaceobjects import SpaceObjects
 
 class Window:
     windw, windh = 800, 600
@@ -16,33 +20,66 @@ class Window:
         pygame.display.set_icon(ico)
 
 class Game:
-    projectiles = []
     particles = []
-    planets = []
-    coins = []
-    stars = []
-    enemies = []
+    coins = []  
 
     running, full, music = True, False, True
+    player = None
+    paused = True
 
     @staticmethod
     def init():
         Window.init()
-        Game.cam = Camera(0.6, Window.windw, Window.windh)
+        Game.cam = Camera(0.4, Window.windw, Window.windh)
         Game.menu = MainMenu()
+        SpaceObjects.load()
+
+    @staticmethod
+    def start():
+        Game.player = Player(Window.windw / 2, Window.windh / 2, 20, 20, [random.randint(1, 255) for i in range(3)], Constants.MAXPLAYERSPEED, 100)
+        Game.cam.offset = Vector2(0, 0)
+        Game.menu = None
+        Game.paused = False
+
+    @staticmethod
+    def exitGame():
+        Game.player = None
+        Game.paused = True
+        Game.menu = MainMenu()
+
+    @staticmethod
+    def pause():
+        Game.paused = True
+        Game.menu = PauseMenu()
+
+    @staticmethod
+    def unpause():
+        Game.paused = False
+        Game.menu = None
 
     @staticmethod
     def update():
         if not Game.running: return False
 
+        Keys.update()
+        Mouse.update()
         for event in pygame.event.get():
             if event.type == QUIT:
                 return False
         
-        Keys.update()
-        Mouse.update()
+        if Keys.get(K_ESCAPE).pressedReleased:
+            Game.pause()
 
-        Game.menu.update()
+        SpaceObjects.update(Game.cam.offset, Window.windw, Window.windh)
+        if not Game.paused:
+            Projectiles.update(Enemies.enemies)
+            Particles.update()
+            Enemies.update(Game.player, Game.cam.offset, Window.windw, Window.windh)
+            alive = Game.player.update(Game.cam.offset)
+            Game.cam.update(Game.player)
+
+        if Game.menu:
+            Game.menu.update()
 
         return True
 
@@ -50,91 +87,53 @@ class Game:
     def draw():
         Window.screen.fill((0, 0, 0))
 
-        Game.drawPlanets()
-        Game.drawStars()
+        SpaceObjects.draw(Window.screen, Game.cam.offset)
+        Projectiles.draw(Window.screen, Game.cam.offset)
+        Particles.draw(Window.screen, Game.cam.offset)
         Game.drawCoins()
-        Game.drawProjectiles()
-        Game.drawParticles()
-        Game.drawEnemies()
+        Enemies.draw(Window.screen, Game.cam.offset)
 
-        Game.menu.draw(Window.screen)
+        if Game.player:
+            Game.player.draw(Window.screen, Game.cam.offset)
+
+        if Game.menu:
+            Game.menu.draw(Window.screen)
+
         pygame.display.update()
-
-    @staticmethod
-    def drawPlanets():
-        for planet in Game.planets:
-            if planet.x - outright + planet.zx < windw and (planet.x + planet.img.get_rect()[2]) - outright + planet.zx > 0 and planet.y - outbottom + planet.zy < windh and (planet.y + planet.img.get_rect()[3]) - outbottom + planet.zy > 0:
-                screen.blit(planet.img, (planet.x - outright + planet.zx, planet.y - outbottom + planet.zy))
-
-    @staticmethod
-    def drawStars():
-        for star in Game.stars:
-            pygame.draw.rect(
-                screen, star.colour, (star.x - outright + star.zx, star.y - outbottom + star.zy, star.w, star.h))
 
     @staticmethod
     def drawCoins():
         for coin in Game.coins:
             coin.draw(cam.offset)
 
-    @staticmethod       
-    def drawProjectiles():
-        for p in Game.projectiles:
-           p.draw()
-
-    @staticmethod
-    def drawParticles():
-        for i in Game.particles:
-            if i.colour != "r":
-                pygame.draw.rect(
-                    screen, (i.colour), ((i.x - outright, i.y - outbottom), (i.s, i.s)), 0)
-            else:
-                pygame.draw.rect(screen, (random.randint(0, 255), random.randint(
-                    0, 255), random.randint(0, 255)), ((i.x - outright, i.y - outbottom), (i.s, i.s)), 0)
-    @staticmethod
-    def drawEnemies():
-        for e in Game.enemies:
-            e.draw()
-
 buttonStyle = {
     "background_colour": (100, 100, 100),
     "border_colour": (60, 60, 60),
     "colour": (255, 255, 255),
     "padding": 15,
+    "width": 400,
+    "height": 80,
     "hover": {
         "background_colour": (60, 60, 60),
-        "border_colour": (100, 100, 100)
+        "border_colour": (100, 100, 100),
+        "width": 390
     }
 }
 
 class MainView(View):
-    
-
     def doLayout(self):
         mainContainer = Container(width=Window.windw, height=Window.windh)
         middleContainer = Container()
 
         title = Image(src="./assets/RectangleTitle.png")
-        startButton = Button(width=400, height=80, text="Start!", **buttonStyle)
-        optionsButton = Button(width=400, height=80, text="Options", **buttonStyle)
-        scoresButton = Button(width=400, height=80, text="High Scores", **buttonStyle)
-        exitButton = Button(width=400, height=80, text="Exit", **buttonStyle)
+        startButton = Button(text="Start!", **buttonStyle)
+        optionsButton = Button(text="Options", **buttonStyle)
+        scoresButton = Button(text="High Scores", **buttonStyle)
+        exitButton = Button(text="Exit", **buttonStyle)
 
-        def startButtonClicked(e, args):
-            print "HEY THERE"
-
-        startButton.onClick.register(startButtonClicked)
-
-        def optionsButtonClicked(e, args):
-            args[0].go("main.options")
-
-        optionsButton.onClick.register(optionsButtonClicked, self.parent)
-
-
-        def exitButtonClicked(e, args):
-            Game.running = False
-
-        exitButton.onClick.register(exitButtonClicked)
+        startButton.onClick.register(self.startButtonClicked)
+        optionsButton.onClick.register(self.optionsButtonClicked, self.parent)
+        exitButton.onClick.register(self.exitButtonClicked)
 
         middleContainer.addComponent(title)
         middleContainer.addComponent(startButton)
@@ -146,14 +145,23 @@ class MainView(View):
 
         self.addComponent(mainContainer)
 
-class OptionView(View):
+    def startButtonClicked(self, e, args):
+            Game.start()
+
+    def optionsButtonClicked(self, e, args):
+            args[0].go("main.options")
+
+    def exitButtonClicked(self, e, args):
+            Game.running = False
+
+class OptionsView(View):
     def doLayout(self):
         mainContainer = Container(width=Window.windw, height=Window.windh)
         middleContainer = Container()
 
-        fullToggle = Button(width=400, height=80, text="Toggle Fullscreen", **buttonStyle)
-        musicToggle = Button(width=400, height=80, text=("Music: " + ("On" if Game.music else "Off")), **buttonStyle)
-        backButton = Button(width=400, height=80, text="Back", **buttonStyle)
+        fullToggle = Button(text="Toggle Fullscreen", **buttonStyle)
+        musicToggle = Button(text=("Music: " + ("On" if Game.music else "Off")), **buttonStyle)
+        backButton = Button(text="Back", **buttonStyle)
 
         fullToggle.onClick.register(self.toggleFullscreen)
         musicToggle.onClick.register(self.toggleMusic, musicToggle)
@@ -187,15 +195,53 @@ class ScoreView(View):
 
         button1.onClick.register(button1Clicked, self)
 
-
-
 class MainMenu(Menu):
     def __init__(self):
         super(MainMenu, self).__init__()
 
     def config(self):
         self.addView(State("main", MainView()))
-        self.addView(State("main.options", OptionView()))
+        self.addView(State("main.options", OptionsView()))
         self.addView(State("main.scores", ScoreView()))
+
+        self.go("main")
+
+class MainPauseView(View):
+    def doLayout(self):
+        mainContainer = Container(width=Window.windw, height=Window.windh)
+        middleContainer = Container()
+
+        resumeButton = Button(text="Resume", **buttonStyle)
+        optionsButton = Button(text="Options", **buttonStyle)
+        exitButton = Button(text="Exit to Main Menu", **buttonStyle)
+
+        resumeButton.onClick.register(self.resumeClicked)
+        optionsButton.onClick.register(self.optionsClicked, self.parent)
+        exitButton.onClick.register(self.exitClicked)
+
+        middleContainer.addComponent(resumeButton)
+        middleContainer.addComponent(optionsButton)
+        middleContainer.addComponent(exitButton)
+
+        mainContainer.addComponent(middleContainer)
+        self.addComponent(mainContainer)
+
+    def resumeClicked(self, e, args):
+        Game.unpause()
+
+    def optionsClicked(self, e, args):
+        args[0].go("main.options")
+
+    def exitClicked(self, e, args):
+        Game.exitGame()
+
+
+class PauseMenu(Menu):
+    def __init__(self):
+        super(PauseMenu, self).__init__()
+
+    def config(self):
+        self.addView(State("main", MainPauseView()))
+        self.addView(State("main.options", OptionsView()))
 
         self.go("main")

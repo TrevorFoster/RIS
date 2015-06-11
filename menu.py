@@ -23,8 +23,8 @@ class Component(object):
 		"position": Vector2(),
 		"horizontal_align": 0,
 		"colour": (0, 0, 0),
-		"background_colour": (0, 0, 0),
-		"border_colour": (0, 0, 0),
+		"background_colour": None,
+		"border_colour": None,
 		"layout": 0,
 		"padding": 0,
 		"hover": {}
@@ -49,7 +49,7 @@ class Component(object):
 	def parseAttr(self):
 		for attr, value in Component.defaults.iteritems():
 			self.attr.setdefault(attr, value)
-			
+
 		self.pos = self.attr["position"]
 		self.w = self.attr["width"]
 		self.h = self.attr["height"]
@@ -60,7 +60,6 @@ class Component(object):
 			if horAlign == 0:
 				self.pos.x = self.parent.pos.x + self.parent.w / 2 - self.w / 2
 			elif horAlign == 1:
-				print self.parent.pos.x
 				self.pos.x = self.parent.pos.x
 
 	def update(self):
@@ -78,13 +77,35 @@ class Component(object):
 			self.inside = False
 
 	def mouseEnter(self, e, args):
+		self.overridden = {}
 		for attr, value in self.attr["hover"].iteritems():
 			self.overridden[attr] = self.attr[attr]
 			self.attr[attr] = value
 
+		if "width" in self.overridden:
+			self.w = self.attr["width"]
+			if self.parent:
+				self.parent.align()
+
+		if "height" in self.overridden:
+			self.h = self.attr["height"]
+			if self.parent:
+				self.parent.align()
+
+
 	def mouseLeave(self, e, args):
 		for attr, value in self.overridden.iteritems():
 			self.attr[attr] = value
+
+		if "width" in self.overridden:
+			self.w = self.attr["width"]
+			if self.parent:
+				self.parent.align()
+
+		if "height" in self.overridden:
+			self.h = self.attr["height"]
+			if self.parent:
+				self.parent.align()
 
 	def draw(self, screen):
 		pass
@@ -156,7 +177,8 @@ class Container(Component):
 
 			for i, c in enumerate(self.components):
 				padding = c.attr["padding"]
-				totW += c.w
+				if c.w > totW:
+					totW = c.w
 				totH += c.h
 
 			self.w = totW
@@ -182,7 +204,7 @@ class Container(Component):
 	def draw(self, screen):
 		if self.attr["background_colour"]:
 			pygame.draw.rect(screen, self.attr["background_colour"], (self.pos.x, self.pos.y, self.w, self.h))
-
+		
 		for c in self.components:
 			c.draw(screen)
 
@@ -217,12 +239,17 @@ class View(object):
 class Menu(object):
 	def __init__(self):
 		self.stateProvider = StateProvider()
+		self.views = []
 		self.currentView = None
 		self.config()
 		Menu.font = pygame.font.Font("./assets/pixelated.ttf", 30)
 
 	def config(self):
 		pass
+
+	def close(self):
+		for view in self.views:
+			view.cleanLayout()
 
 	def draw(self, screen):
 		if self.currentView:
@@ -233,6 +260,7 @@ class Menu(object):
 			self.currentView.update()
 
 	def addView(self, state):
+		self.views.append(state.view)
 		state.view.parent = self
 		self.stateProvider.state(state)
 
