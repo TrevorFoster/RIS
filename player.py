@@ -1,7 +1,8 @@
 import math, pygame
 from pygame.locals import *
 from helpers import Keys, Mouse, Vector2, Constants
-from weapons import SingleSquare, SpreadSquare, MachineSquare, ExplosiveSquare
+from weapons import SingleSquare, SpreadSquare, MachineSquare, ExplosiveSquare, SpinSquare
+from managers import projectileManager
 
 class Player:
 
@@ -18,7 +19,8 @@ class Player:
 		self.speedStep = self.maxSpeed / 50.0
 		self.aimerPos = Vector2()
 		self.weapon = None
-		self.weapons = [SingleSquare(self), SpreadSquare(self), MachineSquare(self), ExplosiveSquare(self)]
+		self.weapons = [SpinSquare(projectileManager, self), SpreadSquare(projectileManager, self), 
+						MachineSquare(projectileManager, self), ExplosiveSquare(projectileManager, self)]
 		self.selectWeapon(0)
 		self.health = health
 		self.alive = True

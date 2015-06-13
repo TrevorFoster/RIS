@@ -1,43 +1,4 @@
 import pygame, random
-from resources import ResourceManager
-
-class SpaceObjects:
-	planets = []
-	stars = []
-
-	@staticmethod
-	def load():
-		images = []
-		for i in range(1, 21):
-			img = ResourceManager.loadImage("./assets/Planet" + str(i) + ".png")
-			if img:
-				images.append(img)
-
-		for i in range(20):
-			SpaceObjects.planets.append(Planet(random.randint(-10000, 10000), random.randint(-10000, 10000),
-                           random.randint(-920, -820), images[random.randint(0, len(images) - 1)]))
-
-	@staticmethod
-	def update(camOffset, ww, wh):
-		for planet in SpaceObjects.planets:
-			planet.update(camOffset, ww, wh)
-		SpaceObjects.planets.sort(key=lambda planet: planet.z)
-
-		stars = SpaceObjects.stars
-		if len(stars) < 50:
-			stars.append(Star(random.randint(int(camOffset.x), (ww + int(camOffset.x))), 
-	    		random.randint(int(camOffset.y), wh + int(camOffset.y)), 2, 2, (255, 255, 255), 0))
-		
-		SpaceObjects.stars = filter(lambda star: not star.update(camOffset, ww, wh), stars)
-
-	@staticmethod
-	def draw(screen, camOffset):
-		for planet in SpaceObjects.planets:
-			planet.draw(screen, camOffset)
-
-		for star in SpaceObjects.stars:
-			star.draw(screen, camOffset)
-
 
 class Planet:
 

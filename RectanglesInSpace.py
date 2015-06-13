@@ -75,7 +75,7 @@ pitches = [24, 26, 28, 29, 31, 33, 35,
 # smaller = pygame.font.Font("./assets/pixelated.ttf", 25)
 # smallest = pygame.font.Font("./assets/pixelated.ttf", 15)
 
-clock = pygame.time.Clock()
+
 # pls = windw / windh * 2
 # mes = pls / 1.01
 # pv = 1.5
@@ -126,7 +126,7 @@ while running:
 	running = Game.update()
 
 	Game.draw()
-	mili = clock.tick(200)
+	
 
 #     keystate = pygame.key.get_pressed()
 #     mousestate = pygame.mouse.get_pressed()

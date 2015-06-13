@@ -4,9 +4,7 @@ from menu import *
 from helpers import Keys, Mouse, Constants
 from camera import Camera
 from player import Player
-from weapons import Projectiles, Particles
-from enemy import Enemies
-from spaceobjects import SpaceObjects
+from managers import *
 
 class Window:
     windw, windh = 800, 600
@@ -26,13 +24,14 @@ class Game:
     running, full, music = True, False, True
     player = None
     paused = True
+    clock = pygame.time.Clock()
 
     @staticmethod
     def init():
         Window.init()
         Game.cam = Camera(0.4, Window.windw, Window.windh)
         Game.menu = MainMenu()
-        SpaceObjects.load()
+        spaceObjectManager.load()
 
     @staticmethod
     def start():
@@ -70,16 +69,19 @@ class Game:
         if Keys.get(K_ESCAPE).pressedReleased:
             Game.pause()
 
-        SpaceObjects.update(Game.cam.offset, Window.windw, Window.windh)
+        spaceObjectManager.update(Game.cam.offset, Window.windw, Window.windh)
         if not Game.paused:
-            Projectiles.update(Enemies.enemies)
-            Particles.update()
-            Enemies.update(Game.player, Game.cam.offset, Window.windw, Window.windh)
+            projectileManager.update()
+            particleManager.update()
+            enemyManager.update(Game.player, Game.cam.offset, Window.windw, Window.windh)
             alive = Game.player.update(Game.cam.offset)
             Game.cam.update(Game.player)
 
         if Game.menu:
             Game.menu.update()
+
+        millis = Game.clock.tick(200)
+        GameTimer.tick(millis)
 
         return True
 
@@ -87,11 +89,11 @@ class Game:
     def draw():
         Window.screen.fill((0, 0, 0))
 
-        SpaceObjects.draw(Window.screen, Game.cam.offset)
-        Projectiles.draw(Window.screen, Game.cam.offset)
-        Particles.draw(Window.screen, Game.cam.offset)
-        Game.drawCoins()
-        Enemies.draw(Window.screen, Game.cam.offset)
+        spaceObjectManager.draw(Window.screen, Game.cam.offset)
+        projectileManager.draw(Window.screen, Game.cam.offset)
+        particleManager.draw(Window.screen, Game.cam.offset)
+
+        enemyManager.draw(Window.screen, Game.cam.offset)
 
         if Game.player:
             Game.player.draw(Window.screen, Game.cam.offset)

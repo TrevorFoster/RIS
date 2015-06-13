@@ -1,19 +1,30 @@
 import math, random, pygame
 from helpers import Vector2, Constants
 from threading import Timer
-from weapons import Particles, Particle
+from weapons import SpinSquare
 
-class Enemies:
-	enemies = []
-	waveNum = 1
-	wave = None
+class Enemy(object):
+	font = None
 
-	@staticmethod
-	def enemyFunc(n):
-		return 2 * n
+	def __init__(self, x, y, w, h, health, speed, colour, name):
+		self.pos = Vector2(x, y)
+		self.w = w
+		self.h = h
 
-	@staticmethod
-	def spawnRandom(camOffset, ww, wh):
+		self.velocity = Vector2()
+		self.health = health
+		self.maxSpeed = speed
+		self.speedStep = self.maxSpeed / 50.0
+		self.facing = 0
+		
+		self.colour = colour
+		self.name = name
+
+		if not Enemy.font:
+			Enemy.font = pygame.font.Font("./assets/pixelated.ttf", 15)
+
+	@classmethod
+	def random(cls, camOffset, ww, wh):
 		xOffs, yOffs = int(camOffset.x), int(camOffset.y)
 
 		spawnPoint = [random.randint(xOffs - 1000, ww + xOffs + 1000), random.randint(yOffs - 1000, wh + yOffs + 1000)]
@@ -21,81 +32,14 @@ class Enemies:
 		size = [random.randint(35, 100) for i in range(2)]
 		colour = [random.randint(1, 255) for i in range(3)]
 
-		Enemies.enemies.append(Enemy(spawnPoint[0], spawnPoint[1], 100, enemySpeed, size[0], size[1], colour, None))
-
-	@staticmethod
-	def update(plyr, camOffset, ww, wh):
-		Enemies.enemies = filter(lambda enemy: not enemy.update(plyr), Enemies.enemies)
-
-		if Enemies.wave:
-			if Enemies.wave.update(camOffset, ww, wh) and len(Enemies.enemies) == 0:
-				Enemies.waveNum += 1
-				Enemies.wave = Wave(Enemies.waveNum, Enemies.enemyFunc(Enemies.waveNum), random.uniform(2.0, 3.0))
-		else:
-			Enemies.wave = Wave(Enemies.waveNum, Enemies.enemyFunc(Enemies.waveNum), random.uniform(2.0, 3.0))
-
-	@staticmethod
-	def draw(screen, camOffset):
-		for enemy in Enemies.enemies:
-			enemy.draw(screen, camOffset)
-
-class Wave:
-	def __init__(self, wave, spawnTotal, spawnRate):
-		self.wave = wave
-		self.spawnTotal = spawnTotal
-		self.spawnRate = spawnRate
-		self.spawned = 0
-		self.spawning = False
-		self.spawnTimer = None
-
-	def spawn(self, camOffset, ww, wh):
-		Enemies.spawnRandom(camOffset, ww, wh)
-		self.spawned += 1
-
-	def regulateSpawn(self, camOffset, ww, wh):
-		self.spawn(camOffset, ww, wh)
-		self.spawning = False
-		self.spawnTimer = None
-
-	def update(self, camOffset, ww, wh):
-		if self.spawned >= self.spawnTotal: return True
-		elif not self.spawning:
-			self.spawnTimer = Timer(self.spawnRate, self.regulateSpawn, (camOffset, ww, wh))
-			self.spawnTimer.start()
-			self.spawning = True
-		return False
-
-
-class Enemy:
-	font = None
-
-	def __init__(self, x, y, health, speed, w, h, colour, name):
-		self.pos = Vector2(x, y)
-		self.velocity = Vector2()
-
-		self.health = health
-		self.maxSpeed = speed
-		self.speedStep = self.maxSpeed / 50.0
-		self.facing = 0
-		self.w = w
-		self.h = h
-		self.colour = colour
-		self.name = name
-
-		if not Enemy.font:
-			Enemy.font = pygame.font.Font("./assets/pixelated.ttf", 15)
+		return cls(spawnPoint[0], spawnPoint[1], size[0], size[1], 100, enemySpeed, colour, None)
 
 	def update(self, plyr):
 		# Enemy died
 		if self.health <= 0:
 			self.health = 0
 
-			# Add some particles for enemy explode
-			for y in range(random.randint(10, 20)):
-				s = random.randint(5, 8)
-				Particles.add(Particle(self.pos.x, self.pos.y, s, s, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), random.uniform(0, math.radians(360)), 1.5))
-
-			return True
+			return False
 			# # Play enemy death sound
 			# midiout.set_instrument(127)
 			# midiout.note_on(random.randint(45, 50), 127)
@@ -126,7 +70,7 @@ class Enemy:
 
 		self.pos += self.velocity
 
-		return False
+		return True
 
 	def hit(self, projectile):
 		self.health -= random.uniform((projectile.dps), (projectile.dps + projectile.dps * 2))
@@ -150,14 +94,73 @@ class Enemy:
 
 	def draw(self, screen, camOffset):
 		pygame.draw.rect(screen, (self.colour), ((self.pos.x - camOffset.x, self.pos.y - camOffset.y), (self.w, self.h)), 3)
-		hp = Enemy.font.render(
-			("HP: " + str(math.ceil(self.health))), 5, (self.colour))
-		t = hp.get_rect(center=(self.pos.x + self.w / 2 - camOffset.x, self.pos.y + self.h + 20 - camOffset.y))
-		screen.blit(hp, (t[0], t[1]))
+		hp = Enemy.font.render("HP: " + str(math.ceil(self.health)), 5, (self.colour))
+		textRect = hp.get_rect(center=(self.pos.x + self.w / 2 - camOffset.x, self.pos.y + self.h + 20 - camOffset.y))
+		screen.blit(hp, (textRect[0], textRect[1]))
 
 		if self.name:
-			name = Enemy.font.render(
-				str(self.name), 5, (255, 255, 255), (80, 80, 80))
+			name = Enemy.font.render(str(self.name), 5, (255, 255, 255), (80, 80, 80))
 			t = name.get_rect(
-				center=(e.x + e.w / 2 - camOffset.x, e.y - 20 - camOffset.y))
+				center=(self.x + self.w / 2 - camOffset.x, self.y - 20 - camOffset.y))
 			screen.blit(name, (t[0], t[1]))
+
+class Boss(Enemy):
+	attackSequence = [
+		["follow", 2],
+		["spinShoot", 10]
+	]
+
+	def __init__(self, x, y, w, h, health, speed, colour, name, emitter):
+		super(Boss, self).__init__(x, y, w, h, health, speed, colour, name)
+		self.angle = 0
+		self.aimerPos = Vector2()
+		self.nextAttack = 0
+		self.currentAttack = None
+		self.currentlyAttacking = False
+		self.weapon = None
+		self.emitter = emitter
+
+	@classmethod
+	def random(cls, camOffset, ww, wh, emitter):
+		xOffs, yOffs = int(camOffset.x), int(camOffset.y)
+
+		spawnPoint = [random.randint(xOffs - 1000, ww + xOffs + 1000), random.randint(yOffs - 1000, wh + yOffs + 1000)]
+		enemySpeed = Constants.MAXENEMYSPEED + random.uniform(-.75, .5)
+		size = [random.randint(100, 150) for i in range(2)]
+		colour = [random.randint(1, 255) for i in range(3)]
+
+		return cls(spawnPoint[0], spawnPoint[1], size[0], size[1], 100, enemySpeed, colour, None, emitter)
+
+	def update(self, plyr):
+		if self.health <= 0:
+			self.health = 0
+			if self.weapon:
+				self.weapon.stopShooting()
+				self.weapon = None
+			return False
+
+		if not self.currentlyAttacking:
+			self.currentAttack = Boss.attackSequence[self.nextAttack]
+			self.currentlyAttacking = True
+			attackTimer = Timer(self.currentAttack[1], self.stopAttacking, ())
+			attackTimer.start()
+		else:
+			if self.currentAttack[0] == "follow":
+				super(Boss, self).update(plyr)
+			elif self.currentAttack[0] == "spinShoot":
+				if not self.weapon:
+					self.weapon = SpinSquare(self.emitter, self)
+					self.weapon.startShooting()
+				self.angle += math.pi / 880.0
+		return True
+
+	def stopAttacking(self):
+		if self.weapon:
+			self.weapon.stopShooting()
+			self.weapon = None
+
+		self.currentlyAttacking = False
+		self.nextAttack += 1
+		if self.nextAttack >= len(Boss.attackSequence):
+			self.nextAttack = 0
+

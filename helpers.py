@@ -56,6 +56,13 @@ class Vector2:
         else:
             return NotImplemented
 
+    @staticmethod
+    def distance(v1, v2):
+        deltax = v2.x - v1.x
+        deltay = v2.y - v1.y
+
+        return math.sqrt((deltax * deltax) + (deltay * deltay))
+
     def magnitude(self):
         return math.sqrt((self.x * self.x) + (self.y * self.y))
 

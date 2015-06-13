@@ -1,6 +1,6 @@
 import pygame
 from helpers import Vector2, Mouse
-from resources import ResourceManager
+from managers import resourceManager
 
 class Event:
 	def __init__(self, name):
@@ -14,6 +14,36 @@ class Event:
 	def register(self, callback, *args):
 		self._callbacks.append([callback, args])
 		return callback
+
+class GameTimer:
+	timers = []
+	def __init__(self, time, event):
+		self.time = time
+		self.event = event
+		self.passed = 0.0
+		GameTimer.timers.append(self)
+
+	def update(self, millis):
+		self.passed += millis
+		if self.passed >= self.time:
+			self.event.trigger()
+			self.passed = 0.0
+			return True
+		return False
+
+	@staticmethod
+	def unregister(timer):
+		for i, t in enumerate(GameTimer.timers):
+			if t == timer:
+				GameTimer.pop(i)
+				return True
+
+		return False
+
+	@staticmethod
+	def tick(millis):
+		for timer in GameTimer.timers:
+			timer.update(millis)
 
 
 class Component(object):
@@ -148,7 +178,7 @@ class Image(Component):
 			self.load(self.attr["src"])
 
 	def load(self, src):
-		self.image = ResourceManager.loadImage(src)
+		self.image = resourceManager.loadImage(src)
 
 		imgRect = self.image.get_rect()
 		self.w = imgRect[2]
